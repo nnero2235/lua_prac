@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>welcome to weapp test</title>
+
+    <!-- Bootstrap -->
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/bootstrap-select.min.css">
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <script src="/js/jquery.cookie.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/bootstrap-select.min.js"></script>
+  </head>
+  <body style="background:#F5F5F5">
+      <div class="container-fluid">
+          <div class="row">
+              <div class="col-sm-12" style="height:100px;background:green;">
+                  <h1 style="color:white;margin-right:50px;">{{title}}</h1>
+              </div>
+          </div>
+          <div class="row" style="margin-top:20px;">
+              <div class="col-sm-2">
+                  <ul class="nav nav-pills nav-stacked">
+                      {% for _,menu in ipairs(menu_list) do %}
+                      <li class="{{menu.active}}"><a href="{{menu.link}}"><h3>{{menu.name}}</h3></span></a></li>
+                      {% end %}
+                  </ul>
+              </div>
+              <div class="col-sm-10">
+                  <div class="row">
+                      <div class="col-sm-4">
+                          <strong style="margin-right:10px;">interface:</strong>
+                          <select id="interface_selector" class="selectpicker" name="method" id="method_id" data-live-search="true">
+                              {% for m,data in ipairs(interface_list) do %}
+                              <option value="{{m}}">{{data.name}}</option>
+                              {% end %}
+                          </select>
+                      </div>
+                      <div class="col-sm-8">
+                          <div class="col-sm-6">
+                              <strong>session->uid:</strong>
+                              <input type="text" class="input-sm" id="suid_id" name="suid" value="" style="margin-right:20px;" />
+                              <button type="button" class="btn btn-info" onclick="getSessionId()">Get</button>
+                              <button type="button" class="btn btn-info" onclick="getSessionPTongId()">Get PT</button>
+                          </div>
+                          <div class="col-sm-offset-3 col-sm-3">
+                              <button type="button" class="btn btn-warning" onclick="updateInterfaceList()">Update Interface</button>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div id="interface_data" display="hidden">
+                      {% for m,data in ipairs(interface_list) do %}
+                      <div id="{{m}}" m="{{data.method}}" v="{{data.v}}" session="{{data.session}}" sign="{{data.sign}}">
+                          {% if data.params then %}
+                          {% for k,v in pairs(data.params) do %}
+                          <div k="{{k}}" v="{{v}}"></div>
+                          {% end %}
+                          {% end %}
+                      </div>
+                      {% end %}
+                  </div>
+
+                  <div id="content" style="margin-top:20px">
+                      <form class="form-horizontal" id="api_form"  method="post">
+                          {% for _,menu in ipairs(menu_list) do %}
+                          {% if menu.active == 'active' then %}
+                          <input type="hidden" class="form-control input-sm" id="path_id" name="path" value="{{menu.name}}" />
+                          {% end %}
+                          {% end %}
+                          <input type="hidden" class="form-control input-sm" id="method_id" name="method" value="" />
+                          <div class="form-group">
+                              <div class="col-sm-3">
+                                  <strong style="margin-right:20px;">appKey:</strong>
+                                  <select class="selectpicker" name="appKey" id="appKey_id">
+                                      <option  value="we_ios_1.0" selected="selected">we_ios_1.0</option>
+                                      <option  value="we_android_1.0" >we_android_1.0</option>
+                                      <option  value="we_android_2.0" >we_android_2.0</option>
+                                      <option  value="we_h5_1.0" >we_h5_1.0</option>
+                                      <option  value="we_small_1.0" >we_small_1.0</option>
+                                      <option  value="we_js_1.0" >we_js_1.0</option>
+                                  </select>
+                              </div>
+                              <label class="col-md-1 control-label no-padding-right">v</label>
+                              <div class="col-md-1">
+                                  <input type="text" id="version_id" name="v" placeholder=""  value="1.0" class="col-md-10" readonly="readonly"/>
+                              </div>
+                              <label class="col-md-1 control-label no-padding-right">session</label>
+                              <div class="col-md-1">
+                                  <input type="text" id="session_id" name="session" placeholder=""  value="YES" class="col-md-10" readonly="readonly"/>
+                              </div>
+                              <label class="col-md-1 control-label no-padding-right">sign</label>
+                              <div class="col-md-1">
+                                  <input type="text" id="sign_id" name="sign" placeholder="" class="col-md-10"  value="YES"  readonly="readonly" />
+                              </div>
+                          </div>
+                      </form>
+                      <div class="col-md-12">
+                          <h4>cost:  <strong id="cost_id"></strong></h4>
+                      </div>
+                      <div class="col-md-9">
+                          <textarea id="json_area" class="form-control" rows="25"></textarea>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+      <script>
+
+       function addParamInput(param){
+           var e = $("<div class=\"form-group\" name=\"dynamic\"></div>")
+           var label = $("<label class=\"col-sm-1 control-label no-padding-right\">"+param+"</label>")
+           e.append(label)
+           
+           var input_p = $("<div class=\"col-sm-5\"></div>")
+           var input = $("<input type=\"text\" class=\"col-sm-12\"/>")
+           input.attr("id",param+"_id")
+           input.attr("name",param)
+           input_p.append(input)
+           e.append(input_p)
+
+           //sessionid not sign
+           if(param != "sessionid"){
+               var checkbox_p = $("<div class=\"col-sm-1\"></div>")
+               var checkbox = $("<input type=\"checkbox\" checked=\"checked\"> sign</input>")
+               checkbox.attr("id",param+"_ck")
+               checkbox.attr("name",param+"_sign")
+               checkbox_p.append(checkbox)
+               e.append(checkbox_p)
+           }
+           
+           $("#api_form").append(e)
+       }
+
+       function addSubmitButton(){
+           var e = $("<div class=\"form-group\" name=\"dynamic\"></div>")
+           var submit_p = $("<div class=\"col-md-9\"></div>")
+           var submit = $(" <button class=\"btn btn-info col-md-12 btn-lg\" type=\"button\" onclick=\"executeRequest();\">Execute Request</button>")
+           submit_p.append(submit)
+           e.append(submit_p)
+           $("#api_form").append(e)
+       }
+
+       function clearDynamicInput(){
+           $("div[name='dynamic']").remove()
+       }
+
+       function displayParams(){
+           var m = $("#interface_selector").find("option:selected").val()
+           var method = $("#interface_data #"+m).attr("m")
+           var v = $("#interface_data #"+m).attr("v")
+           var session = $("#interface_data #"+m).attr("session")
+           var sign = $("#interface_data #"+m).attr("sign")
+           var params = []
+           $("#interface_data #"+m).children().each(function(i,e){
+               params.push($(this).attr("k"))
+           })
+           console.log("m:"+method+" v:"+v+" session:"+session+" sign:"+sign)
+
+           //set common params
+           $("#method_id").val(method)
+           $("#version_id").val(v)
+           $("#session_id").val(session)
+           $("#sign_id").val(sign)
+
+           //clear params previously
+           clearDynamicInput()
+
+           //add params input
+           if (params.length > 0){
+               for (var i=0;i<params.length;i++){
+                   addParamInput(params[i])
+               }
+           }
+           //add button submit
+           addSubmitButton()
+
+           // set uid and sessionid
+           var uid = $.cookie("req_uid")
+           var sessionid = $.cookie("req_sessionid")
+           $("#sessionid_id").val(sessionid)
+           $("#suid_id").val(uid)
+       }
+
+       function executeRequest(){
+           var data = $("#api_form").serialize();
+           $.ajax({
+               url: "/api/request",
+               type:"post",
+               data:data,
+               success:function(json_str){
+                   console.log(json_str)
+                   var json = JSON.parse(json_str);
+                   if(json.msg == "ok" && json.fm == 'json'){
+                       var d = JSON.parse(json.data)
+                       var format_json = JSON.stringify(d,null,2)
+                       $("#json_area").text(format_json)
+                       $("#cost_id").text(json.cost)
+                   }else if(json.msg == "ok" && json.fm == 'xml'){
+                       $("#cost_id").text(json.cost)
+                       $("#json_area").text(json.data)
+                   } else{
+                       alert(json.msg)
+                   }
+               }
+           });
+       }
+
+       function getSessionId(){
+           var uid = $("#suid_id").val()
+           $.ajax({
+               url: "/api/get/sessionid?uid="+uid,
+               type:"get",
+               success:function(json_str){
+                   console.log(json_str)
+                   var json = JSON.parse(json_str);
+                   if(json.msg == "ok"){
+                       var sessionid = json.sessionid
+                       var uid = json.uid
+                       $.cookie("req_sessionid",sessionid,{path:"/"})
+                       $.cookie("req_uid",uid,{path:"/"})
+                       $("#sessionid_id").val(sessionid)
+                   } else{
+                       alert(json.msg)
+                   }
+               }
+           });
+       }
+       
+       function getSessionPTongId(){
+           var uid = $("#suid_id").val()
+           $.ajax({
+               url: "/api/get/pt_sessionid?uid="+uid,
+               type:"get",
+               success:function(json_str){
+                   console.log(json_str)
+                   var json = JSON.parse(json_str);
+                   if(json.msg == "ok"){
+                       var sessionid = json.sessionid
+                       var uid = json.uid
+                       $.cookie("req_sessionid",sessionid,{path:"/"})
+                       $.cookie("req_uid",uid,{path:"/"})
+                       $("#sessionid_id").val(sessionid)
+                   } else{
+                       alert(json.msg)
+                   }
+               }
+           });
+       }
+       
+
+       function updateInterfaceList(){
+           $.ajax({
+               url: "/api/update/interface",
+               type:"post",
+               success:function(json_str){
+                   console.log(json_str)
+                   var json = JSON.parse(json_str);
+                   if(json.msg == "ok"){
+                       window.location.reload()
+                   } else{
+                       alert(json.msg)
+                   }
+               }
+           });
+       }
+
+       $("#interface_selector").change(function(){
+           displayParams()
+       })
+       
+       window.onload=(function(){
+           displayParams()
+       });
+      </script>
+  </body>
+</html>
